@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Asset universe for the Capital Rotation Tracker.
+#
+# Each entry:
+#   ticker   : yfinance symbol (used as the column / file key everywhere)
+#   name     : human-readable label
+#   category : group used for rotation / regime analysis
+#   tradable : if false, the asset is an indicator only (e.g. VIX) and is
+#              never assigned portfolio weight by any strategy.
+#
+# Users may freely add / remove rows. Data start dates differ per asset; the
+# fetcher auto-detects each asset's available history.
+# ---------------------------------------------------------------------------
+
+assets:
+  # ---- US Equity -----------------------------------------------------------
+  - { ticker: SPY,  name: "S&P 500",            category: us_equity,    tradable: true }
+  - { ticker: QQQ,  name: "NASDAQ 100",         category: us_equity,    tradable: true }
+  - { ticker: IWM,  name: "Russell 2000",       category: us_equity,    tradable: true }
+
+  # ---- Korea Equity --------------------------------------------------------
+  - { ticker: EWY,  name: "MSCI South Korea",   category: kr_equity,    tradable: true }
+
+  # ---- Crypto --------------------------------------------------------------
+  - { ticker: BTC-USD, name: "Bitcoin",         category: crypto,       tradable: true }
+  - { ticker: ETH-USD, name: "Ethereum",        category: crypto,       tradable: true }
+
+  # ---- US Bonds ------------------------------------------------------------
+  - { ticker: TLT,  name: "US 20+Y Treasury",   category: bonds,        tradable: true }
+  - { ticker: SHY,  name: "US 1-3Y Treasury",   category: bonds,        tradable: true }
+  - { ticker: LQD,  name: "IG Corporate Bond",  category: bonds,        tradable: true }
+
+  # ---- Commodities ---------------------------------------------------------
+  - { ticker: GLD,  name: "Gold",               category: commodities,  tradable: true }
+  - { ticker: SLV,  name: "Silver",             category: commodities,  tradable: true }
+  - { ticker: USO,  name: "Crude Oil",          category: commodities,  tradable: true }
+  - { ticker: DJP,  name: "Commodity Index",    category: commodities,  tradable: true }
+
+  # ---- Emerging Markets ----------------------------------------------------
+  - { ticker: EEM,  name: "MSCI Emerging Mkts", category: em_equity,    tradable: true }
+  - { ticker: FXI,  name: "China Large-Cap",    category: em_equity,    tradable: true }
+  - { ticker: INDA, name: "MSCI India",         category: em_equity,    tradable: true }
+  - { ticker: EWZ,  name: "MSCI Brazil",        category: em_equity,    tradable: true }
+
+  # ---- Developed Markets (ex-US) ------------------------------------------
+  - { ticker: EWJ,  name: "MSCI Japan",         category: dm_equity,    tradable: true }
+  - { ticker: EWG,  name: "MSCI Germany",       category: dm_equity,    tradable: true }
+  - { ticker: EWU,  name: "MSCI UK",            category: dm_equity,    tradable: true }
+  - { ticker: VGK,  name: "FTSE Europe",        category: dm_equity,    tradable: true }
+
+  # ---- Real Estate ---------------------------------------------------------
+  - { ticker: VNQ,  name: "US REITs",           category: real_estate,  tradable: true }
+
+  # ---- FX (indicator + diversifier) ---------------------------------------
+  # FX pairs are kept for regime analysis; left non-tradable by default
+  # because yfinance OHLCV for FX has no meaningful volume.
+  - { ticker: DX-Y.NYB, name: "US Dollar Index", category: fx,          tradable: false }
+  - { ticker: JPY=X,    name: "JPY/USD",         category: fx,          tradable: false }
+  - { ticker: EUR=X,    name: "EUR/USD",         category: fx,          tradable: false }
+
+  # ---- Volatility (indicator only) ----------------------------------------
+  - { ticker: "^VIX", name: "VIX Fear Index",   category: volatility,   tradable: false }
+
+# Roles used by the regime engine (must reference tickers above).
+# Missing tickers are silently ignored so the universe stays editable.
+roles:
+  risk_on:   [SPY, QQQ, IWM, EEM, BTC-USD]   # rise when risk appetite is high
+  risk_off:  [TLT, SHY, GLD]                 # rise when investors de-risk
+  vix:       "^VIX"
+  dollar:    DX-Y.NYB
+  equity_benchmark: SPY

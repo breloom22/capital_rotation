@@ -1,0 +1,13 @@
+# Capital Rotation Tracker & Strategy Backtester
+# Python >= 3.10
+yfinance>=0.2.40      # market data
+pandas>=2.0           # data handling
+numpy>=1.24           # numerics
+scipy>=1.10           # stats / optimisation
+scikit-learn>=1.3     # PCA / clustering
+matplotlib>=3.7       # static charts
+plotly>=5.18          # interactive charts (optional)
+rich>=13.0            # CLI tables / progress
+click>=8.1            # CLI framework
+pyyaml>=6.0           # config parsing
+pyarrow>=12.0         # parquet storage

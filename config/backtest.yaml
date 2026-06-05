@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Backtesting engine configuration: period, capital, costs, rebalancing.
+# ---------------------------------------------------------------------------
+
+backtest:
+  initial_capital: 100000      # starting equity (USD)
+  start: null                  # ISO date "YYYY-MM-DD" or null => earliest common date
+  end:   null                  # ISO date or null => latest available date
+  risk_free_rate: 0.02         # annual, used for Sharpe / Sortino / alpha
+  benchmark: SPY               # ticker used for alpha / beta / annual comparison
+  trading_days: 252            # annualisation factor
+  seed: 42                     # seeds numpy RNG in run_suite (pipeline is otherwise deterministic)
+
+costs:
+  commission: 0.001            # one-way commission (0.1%)
+  slippage:   0.0005           # one-way slippage (0.05%)
+  # Effective one-way cost = commission + slippage, charged on traded notional.
+
+rebalance:
+  # Which schedules to evaluate. `backtest run` (no flags) tests every entry here.
+  frequencies: [weekly, monthly, quarterly, signal]
+  signal:
+    min_interval_days: 5       # signal-triggered: minimum trading days between rebalances
+    turnover_threshold: 0.10   # only rebalance when target turnover exceeds this
+
+# Optional risk overlay applied to EVERY strategy's target weights (opt-in).
+# Disabled by default so baseline results are unchanged. When enabled it also
+# affects benchmarks (e.g. Buy & Hold gets capped) -- compare like-for-like.
+risk_overlay:
+  enabled: false
+  max_single_weight: 0.35      # cap any single position at 35%
+  max_gross: 1.0               # cap total invested (excess -> cash)
+  corr_spike:
+    enabled: true              # de-risk when the universe synchronises
+    window: 120                # trailing days for average pairwise correlation
+    threshold: 0.65            # if avg pairwise corr exceeds this...
+    override_budget: 0.5       # ...scale all weights to this (rest -> cash)
+
+data:
+  freq: daily                  # execution frequency for the engine (daily | weekly)
+  raw_dir: data/raw            # per-ticker parquet store
+  output_dir: output           # reports, exports, charts
+  min_obs: 252                 # drop assets with fewer than this many observations

@@ -1,0 +1,105 @@
+# ---------------------------------------------------------------------------
+# Strategy parameters. Every strategy reads its block by key. Editing these
+# changes behaviour with no code changes (project principle: config-driven).
+# ---------------------------------------------------------------------------
+
+# Momentum lookback windows are expressed in TRADING DAYS.
+# 1w=5, 1m=21, 3m=63, 6m=126, 12m=252.
+momentum:
+  # Composite momentum score = weighted blend of trailing total returns.
+  # Keys are lookback windows (trading days); values are weights (auto-normalised).
+  lookback_weights:
+    252: 0.5
+    126: 0.3
+    63:  0.2
+  skip_recent_days: 0          # optional 1-month gap to reduce reversal noise (e.g. 21)
+
+strategies:
+
+  # Strategy 1 -- Top-N rotation: equal-weight the N highest momentum assets.
+  # Tuned via scripts/topn_sweep.py: a single 12-month lookback is more robust
+  # out-of-sample than the 12-6-3 blend (test Sharpe 0.94 -> 1.11 at equal MDD);
+  # N=5 is the risk-adjusted sweet spot (N=3 higher return but ~-60% MDD).
+  topn:
+    n: 5                        # number of assets held
+    lookback_weights: {252: 1.0}  # single 12-month momentum (robust OOS winner)
+    absolute_filter: true       # hold cash in place of any asset with momentum <= 0
+    min_assets: 1               # if fewer than this pass the filter, rest stays cash
+
+  # Strategy 2 -- Risk parity: weight inversely to realised volatility.
+  risk_parity:
+    method: inverse_vol         # 'inverse_vol' (naive) or 'erc' (equal risk contribution, uses covariance)
+    vol_lookback: 63            # trading days for realised vol estimate
+    absolute_filter: false      # if true, exclude assets with negative momentum first
+    momentum_lookback: 126      # used only when absolute_filter is true
+    shrinkage: ledoit_wolf      # covariance estimator for erc: 'ledoit_wolf' or 'sample'
+
+  # Strategy 3 -- Composite scoring across momentum / volume / volatility / corr.
+  momentum_score:
+    n: 8                        # hold the top-N by composite score
+    weights:                    # contribution of each signal to the composite (auto-normalised)
+      momentum:    0.40
+      volume:      0.20
+      volatility:  0.20         # lower volatility scores higher
+      correlation: 0.20         # lower average correlation scores higher (diversification)
+    vol_lookback: 63
+    corr_lookback: 120
+    volume_lookback: 20
+    absolute_filter: true
+
+  # Strategy 5 -- Minimum variance: long-only min-variance with Ledoit-Wolf
+  # shrinkage covariance (uses correlations, unlike inverse-vol risk parity).
+  min_variance:
+    cov_window: 120             # trailing days for the covariance estimate
+    min_weight: 0.0             # per-asset floor (0 = allow concentration)
+    shrinkage: ledoit_wolf      # 'ledoit_wolf' or 'sample'
+    absolute_filter: false      # exclude negative-momentum assets first
+    momentum_lookback: 126
+
+  # Strategy 4 -- Regime based: switch the asset mix on Risk-On / Risk-Off.
+  regime_based:
+    risk_on:
+      us_equity:   0.40
+      em_equity:   0.15
+      crypto:      0.10
+      dm_equity:   0.15
+      commodities: 0.10
+      real_estate: 0.10
+    risk_off:
+      bonds:       0.50
+      commodities: 0.20        # gold-heavy via commodities sleeve
+      us_equity:   0.10
+      cash:        0.20
+    # Within a category the weight is split equally across its tradable members.
+
+  # Strategy 6 -- Regime-conditioned risk budget: scale a base strategy's gross
+  # exposure by the market regime (ported from regime-portfolio-HMM-RL).
+  #   final = budget(regime) x base_weights, rest cash.
+  #
+  # DRAWDOWN-MANAGED RECIPE (validated best): an EDGE base that stays fully
+  # invested + the HMM regime as the timing signal. In recent OOS this matched
+  # plain Top-N's Sharpe with far lower drawdown (-22.8% vs -37.2%, Calmar 1.02
+  # vs 0.79). Set:
+  #     base: topn
+  #     base_params: { absolute_filter: false }   # edge base, always invested
+  #     regime_source: hmm                          # better signal than 'rule' (HMM>rule everywhere)
+  #     mode: continuous
+  # (HMM precompute ~90s; the default below uses the fast rule signal.)
+  regime_budget:
+    base: topn                  # base strategy to scale (security selection)
+    base_params: {}             # override base config, e.g. {absolute_filter: false}
+    regime_source: rule         # 'rule' (fast) or 'hmm' (better signal, ~90s precompute)
+    mode: discrete              # 'discrete' (regime label) or 'continuous' (smooth from score)
+    budgets:                    # gross exposure in [0,1] per regime
+      risk_on:  1.0
+      neutral:  0.6
+      risk_off: 0.3
+    min_budget: 0.0
+
+benchmarks:
+  sixty_forty:
+    SPY: 0.60
+    TLT: 0.40
+  equal_weight: {}             # 1/N over all tradable assets
+  buy_hold:
+    SPY: 1.0
